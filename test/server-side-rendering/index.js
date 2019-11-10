@@ -1,7 +1,6 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import * as glob from 'tiny-glob/sync.js';
 
 import {
 	showOutput,
@@ -31,7 +30,7 @@ describe("ssr", () => {
 		return setupHtmlEqual();
 	});
 
-	fs.readdirSync("test/server-side-rendering/samples").forEach(dir => {
+	fs.readdirSync(`${__dirname}/samples`).forEach(dir => {
 		if (dir[0] === ".") return;
 
 		// add .solo to a sample directory name to only run that test, or
@@ -44,7 +43,7 @@ describe("ssr", () => {
 		}
 
 		(solo ? it.only : it)(dir, () => {
-			dir = path.resolve("test/server-side-rendering/samples", dir);
+			dir = path.resolve(`${__dirname}/samples`, dir);
 			try {
 				const Component = require(`${dir}/main.svelte`).default;
 
@@ -73,9 +72,10 @@ describe("ssr", () => {
 					);
 				}
 
-				if (show) showOutput(dir, { generate: 'ssr' });
+				if (show) showOutput(dir, { generate: 'ssr', format: 'cjs' });
 			} catch (err) {
-				showOutput(dir, { generate: 'ssr' });
+				showOutput(dir, { generate: 'ssr', format: 'cjs' });
+				err.stack += `\n\ncmd-click: ${path.relative(process.cwd(), dir)}/main.svelte`;
 				throw err;
 			}
 		});
@@ -86,23 +86,28 @@ describe("ssr", () => {
 		if (dir[0] === ".") return;
 
 		const config = loadConfig(`./runtime/samples/${dir}/_config.js`);
+		const solo = config.solo || /\.solo/.test(dir);
 
-		if (config.solo && process.env.CI) {
+		if (solo && process.env.CI) {
 			throw new Error("Forgot to remove `solo: true` from test");
 		}
 
 		if (config.skip_if_ssr) return;
 
-		(config.skip ? it.skip : config.solo ? it.only : it)(dir, () => {
+		(config.skip ? it.skip : solo ? it.only : it)(dir, () => {
 			const cwd = path.resolve("test/runtime/samples", dir);
 
-			glob('**/*.svelte', { cwd: `test/runtime/samples/${dir}` }).forEach(file => {
-				const resolved = require.resolve(`../runtime/samples/${dir}/${file}`);
-				delete require.cache[resolved];
-			});
+			Object.keys(require.cache)
+				.filter(x => x.endsWith('.svelte'))
+				.forEach(file => {
+					delete require.cache[file];
+				});
+
+			delete global.window;
 
 			const compileOptions = Object.assign({ sveltePath }, config.compileOptions, {
-				generate: 'ssr'
+				generate: 'ssr',
+				format: 'cjs'
 			});
 
 			require("../../register")(compileOptions);
@@ -127,11 +132,13 @@ describe("ssr", () => {
 					showOutput(cwd, compileOptions);
 				}
 			} catch (err) {
+				err.stack += `\n\ncmd-click: ${path.relative(process.cwd(), cwd)}/main.svelte`;
+
 				if (config.error) {
 					if (typeof config.error === 'function') {
 						config.error(assert, err);
 					} else {
-						assert.equal(config.error, err.message);
+						assert.equal(err.message, config.error);
 					}
 				} else {
 					showOutput(cwd, compileOptions);

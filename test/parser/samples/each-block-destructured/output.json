@@ -12,6 +12,16 @@
 					"type": "Identifier",
 					"start": 7,
 					"end": 14,
+					"loc": {
+						"start": {
+							"line": 1,
+							"column": 7
+						},
+						"end": {
+							"line": 1,
+							"column": 14
+						}
+					},
 					"name": "animals"
 				},
 				"children": [
@@ -37,6 +47,7 @@
 								"start": 50,
 								"end": 52,
 								"type": "Text",
+								"raw": ": ",
 								"data": ": "
 							},
 							{
@@ -80,8 +91,5 @@
 				}
 			}
 		]
-	},
-	"css": null,
-	"instance": null,
-	"module": null
+	}
 }
